@@ -14,160 +14,6 @@
 
 bool plotGraph = false;
 
-class SimpleParser {
-public:
-    explicit SimpleParser(const std::string& expr) : expr_(expr), idx_(0), x_(0) {}
-
-    // Evaluate the expression for a given value of x
-    double evaluate(double x) {
-        x_ = x; // Set x_ before evaluating
-        return parseExpression();
-    }
-
-private:
-    std::string expr_;
-    size_t idx_;
-    double x_; // x_ is now modifiable
-
-    void skipWhitespace() {
-        while (idx_ < expr_.length() && std::isspace(expr_[idx_])) {
-            ++idx_;
-        }
-    }
-
-    double parseNumber() {
-        skipWhitespace();
-        size_t startIdx = idx_;
-        if (expr_[idx_] == '-') {
-            ++idx_; // Skip minus sign
-        }
-        while (idx_ < expr_.length() && std::isdigit(expr_[idx_])) {
-            ++idx_;
-        }
-        if (idx_ < expr_.length() && expr_[idx_] == '.') {
-            ++idx_; // Skip the decimal point
-            while (idx_ < expr_.length() && std::isdigit(expr_[idx_])) {
-                ++idx_;
-            }
-        }
-
-        std::string numberStr = expr_.substr(startIdx, idx_ - startIdx);
-        return std::stod(numberStr);
-    }
-
-    double parseFunction() {
-        skipWhitespace();
-        size_t startIdx = idx_;
-        if (expr_.substr(idx_, 3) == "sin") {
-            idx_ += 3;
-            expect('(');
-            double result = std::sin(parseExpression());
-            expect(')');
-            return result;
-        }
-        else if (expr_.substr(idx_, 3) == "cos") {
-            idx_ += 3;
-            expect('(');
-            double result = std::cos(parseExpression());
-            expect(')');
-            return result;
-        }
-        else if (expr_.substr(idx_, 3) == "tan") {
-            idx_ += 3;
-            expect('(');
-            double result = std::tan(parseExpression());
-            expect(')');
-            return result;
-        }
-        else if (expr_.substr(idx_, 3) == "log") {
-            idx_ += 3;
-            expect('(');
-            double result = std::log(parseExpression());
-            expect(')');
-            return result;
-        }
-        else if (expr_.substr(idx_, 5) == "exp") {
-            idx_ += 5;
-            expect('(');
-            double result = std::exp(parseExpression());
-            expect(')');
-            return result;
-        }
-        else if (expr_[idx_] == 'x') {
-            ++idx_;
-            return x_; // Use the x_ variable
-        }
-        return parseNumber();
-    }
-
-    double parseExponentiation() {
-        double base = parseFunction();
-        skipWhitespace();
-
-        if (expr_[idx_] == '^') {
-            ++idx_; // Skip '^'
-            double exponent = parseFunction();
-            return std::pow(base, exponent);
-        }
-        return base;
-    }
-
-    double parseTerm() {
-        double result = parseExponentiation();
-        skipWhitespace();
-
-        while (true) {
-            if (expr_[idx_] == '*') {
-                ++idx_;
-                result *= parseExponentiation();
-            }
-            else if (expr_[idx_] == '/') {
-                ++idx_;
-                result /= parseExponentiation();
-            }
-            else {
-                break;
-            }
-            skipWhitespace();
-        }
-        return result;
-    }
-
-    double parseExpression() {
-        double result = parseTerm();
-        skipWhitespace();
-
-        while (true) {
-            if (expr_[idx_] == '+') {
-                ++idx_;
-                result += parseTerm();
-            }
-            else if (expr_[idx_] == '-') {
-                ++idx_;
-                result -= parseTerm();
-            }
-            else {
-                break;
-            }
-            skipWhitespace();
-        }
-        return result;
-    }
-
-    void expect(char expected) {
-        skipWhitespace();
-        if (expr_[idx_] != expected) {
-            throw std::runtime_error("Unexpected character!");
-        }
-        ++idx_;
-    }
-};
-
-double evaluateExpression(const std::string& expr, double x) {
-    SimpleParser parser(expr);
-    return parser.evaluate(x);
-}
-
 // List of famous functions for plotting
 std::vector<std::pair<std::string, std::function<double(double)>>> famousFunctions = {
     {"sin(x)", [](double x) { return std::sin(x); }},
@@ -247,7 +93,7 @@ int main() {
     ImGui::SFML::Init(window);
 
     sf::View view = window.getDefaultView();
-    bool AdjustViewCoordinates = false; 
+    bool AdjustViewCoordinates = false;
 
     // User input for custom equation
     char userEquation[256] = "x*x";  // Default equation
@@ -328,41 +174,11 @@ int main() {
             }
             ImGui::EndCombo();
         }
-
-        // Use a char buffer for the custom equation input
-        if (ImGui::InputText("Custom Equation", userEquation, IM_ARRAYSIZE(userEquation))) {
-            for (double i = -100; i <= 100; i += 0.001) {
-                float x = static_cast<float>(i);
-                float yVal;
-
-                // Use the selected famous function or the custom equation
-                if (selectedFunctionIndex >= 0 && selectedFunctionIndex < famousFunctions.size()) {
-                    yVal = static_cast<float>(famousFunctions[selectedFunctionIndex].second(x));
-                }
-                else if (plotGraph) {
-                    yVal = static_cast<float>(evaluateExpression(userEquation, x));
-                }
-
-                // Apply scaling and translation to match the window coordinates
-                x *= scaleX;
-                yVal *= scaleY;
-                x += centerX;
-                yVal = centerY - yVal;  // Invert y-axis
-
-                // Add point to graph
-                graph.append(sf::Vertex(sf::Vector2f(x, yVal), sf::Color::White));
-            }
-        }
-
-        if (ImGui::Button(plotGraph ? "Clear Graph" : "Plot Graph")) {
-            plotGraph = !plotGraph;  // Toggle the graph state
-        }
-
         ImGui::End();
 
         // Plot the graph based on the selected function or custom equation
         graph.clear();
-        
+
         for (double i = -100; i <= 100; i += 0.001) {
             float x = static_cast<float>(i);
             float yVal;
@@ -371,10 +187,7 @@ int main() {
             if (selectedFunctionIndex >= 0 && selectedFunctionIndex < famousFunctions.size()) {
                 yVal = static_cast<float>(famousFunctions[selectedFunctionIndex].second(x));
             }
-            else if(plotGraph){
-                yVal = static_cast<float>(evaluateExpression(userEquation, x));
-            }
-
+           
             // Apply scaling and translation to match the window coordinates
             x *= scaleX;
             yVal *= scaleY;
